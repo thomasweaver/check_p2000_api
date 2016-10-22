@@ -12,13 +12,14 @@ perfdata output rta=35.657001ms;1000.000000;3000.000000;0.000000 pl=0%;80;100;0
  
  
 //Set provided variables
-$arguements = getopt("H:U:P:s:c:S:u:w:C:t:");
+$arguements = getopt("H:U:P:s:c:S:u:w:C:t:n:");
  
 $secure = isset($arguements['s']) ? $arguements['s'] : 0;
 $command = isset($arguements['c']) ? $arguements['c'] : "status";
 $stat = isset($arguements['S']) ? $arguements['S'] : "iops";
 $uom = isset($arguements['u']) ? $arguements['u'] : "";
 $warnType = isset($arguements['t']) ? $arguements['t'] : "greaterthan";
+$volumeName = isset($arguements['n']) ? $arguements['n'] : "";
  
 if(isset($arguements['w']) || isset($arguements['C'])) {
 		if(!isset($arguements['w']) || !isset($arguements['C'])) {
@@ -34,6 +35,14 @@ if(isset($arguements['w']) || isset($arguements['C'])) {
  
 //Validate Provided arguements
 if(!isset($arguements['H']) || !isset($arguements['U']) || !isset($arguements['P'])) {
+		Usage();
+		exit(3);
+}
+elseif(($command == 'named-volume') && (empty($volumeName))) {
+		Usage();
+		exit(3);
+}
+elseif(($command == 'named-vdisk') && (empty($volumeName))) {
 		Usage();
 		exit(3);
 }
@@ -263,7 +272,107 @@ if($successful) {
 								returnNagios("UNKNOWN", "Could Not Read API");
 						}
 						break;
+ 				
+				case "named-volume":
+						try {
+								//pass $volumename to the end of URL and use API to run command and get XML
+								$regXML = getRequest($sessionVariable, "{$url}show/volumes/".$volumeName, $secure);
+								$regXML = new SimpleXMLElement($regXML);
+			   
+								foreach($regXML->OBJECT as $obj) {
+										$attr = $obj->attributes();
+											   
+										if($attr['name']=="volume") {
+												$vdiskName = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'virtual-disk-name'));
+												$diskName = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'volume-name'));
+												$diskSize = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'size'));
+												$statuses = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'health'));
+												$reason = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'health-reason'));
+												$action = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'health-recommendation'));
+										}
+								}
+						}
+						catch(Exception $e) {
+								returnNagios("UNKNOWN", $e->getMessage().". Check firmware supports command.");
+						}
+						//Check the return of status and build the output
+						if(isset($statuses)){
+							$overallStatus = "OK";
+							$output = "";
+							if($statuses == "OK") {
+								//Health is OK
+								$overallstatus = 'OK';
+								$output = "Volume " . $diskName . " is " . $statuses . ". Size is: " . $diskSize . " vDisk Name is " . $vdiskName . ".";
+							}
+							elseif($statuses == "Degraded") {
+								//Health is Degraded = Warning
+								$overallstatus = 'WARNING';
+								$output = "Volume " . $diskName . " is " . $statuses . ". Reason is: " . $reason . ". Recommended action is " . $action . ".";
+							}
+							elseif($statuses == "Fault") {
+								//Health is Fault = Critical
+								$overallstatus = 'CRITICAL';
+								$output = "Volume " . $diskName . " is " . $statuses . ". Reason is: " . $reason . ". Recommended action is " . $action . ".";
+							}
+							elseif($statuses == "Unknown") {
+								//Health is Unknown
+								$overallstatus = 'UNKNOWN';
+								$output = "Volume " . $diskName . " is " . $statuses . ". Reason is: " . $reason . ". Recommended action is " . $action . ".";
+							}
+						} else {
+							returnNagios("UNKNOWN", "Could Not Read API");
+						}
+						break;
  
+				case "named-vdisk":
+						try {
+								//pass $volumename to the end of URL and use API to run command and get XML
+								$regXML = getRequest($sessionVariable, "{$url}show/vdisks/".$volumeName, $secure);
+								$regXML = new SimpleXMLElement($regXML);
+			   
+								foreach($regXML->OBJECT as $obj) {
+										$attr = $obj->attributes();
+											   
+										if($attr['name']=="virtual-disk") {
+												$diskName = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'name'));
+												$diskSize = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'size'));
+												$statuses = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'health'));
+												$reason = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'health-reason'));
+												$action = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'health-recommendation'));
+										}
+								}
+						}
+						catch(Exception $e) {
+								returnNagios("UNKNOWN", $e->getMessage().". Check firmware supports command.");
+						}
+						//Check the return of status and build the output
+						if(isset($statuses)){
+							$overallStatus = "OK";
+							$output = "";
+							if($statuses == "OK") {
+								//Health is OK
+								$overallstatus = 'OK';
+								$output = "vDisk " . $diskName . " is " . $statuses . ". Size is: " . $diskSize . ".";
+							}
+							elseif($statuses == "Degraded") {
+								//Health is Degraded = Warning
+								$overallstatus = 'WARNING';
+								$output = "vDisk " . $diskName . " is " . $statuses . ". Reason is: " . $reason . ". Recommended action is " . $action . ".";
+							}
+							elseif($statuses == "Fault") {
+								//Health is Fault = Critical
+								$overallstatus = 'CRITICAL';
+								$output = "vDisk " . $diskName . " is " . $statuses . ". Reason is: " . $reason . ". Recommended action is " . $action . ".";
+							}
+							elseif($statuses == "Unknown") {
+								//Health is Unknown
+								$overallstatus = 'UNKNOWN';
+								$output = "vDisk " . $diskName . " is " . $statuses . ". Reason is: " . $reason . ". Recommended action is " . $action . ".";
+							}
+						} else {
+							returnNagios("UNKNOWN", "Could Not Read API");
+						}
+						break;
 				case "disk":
 						try {
 								//Use API to run command and get XML
@@ -351,8 +460,8 @@ if($successful) {
 						break;
 		}              
  
-		if($command != "status") {
-	   
+		$nonPerfCommands = array('status', 'named-volume', 'named-vdisk');
+		if(!in_array($command,$nonPerfCommands)) {
 				if(isset($warning) && isset($critical)) {
 						$perfOutput = parsePerfData($perfstats, $uom,  $warnType, $warning, $critical);
 						$overallStatus = $perfOutput[1];
@@ -484,6 +593,8 @@ Optional Variables:
 				status - get the status of the SAN
 				disk - Get performance data of the disks
 				controller - Get performance data of the controllers
+				named-volume - Get the staus of an individual volume - MUST have -n volumename specified
+				named-vdisk - Get the staus of an individual vdisk - MUST have -n volumename specified
 				vdisk - Get performance data of the VDisks
 				volume - Get performance data of the volumes
 		-S specify the stats to get for performance data. ONLY works when -c is specified
@@ -493,10 +604,13 @@ Optional Variables:
 		-t Specify how critical warning is calculated (DEFAULT greaterthan)
 				lessthan - if value is lessthan warning/critical return warning/critical
 				greaterthan - if value is greaterthan warning/critical return warning/critical
+		-n Volume Name to be used with -c named-volume or -c named-vdisk
 	   
 Examples
 		Just get the status of the P2000
 		./check_p2000_api.php -H 192.168.0.2 -U manage -P !manage
+		Get the status of the volume name volume1 on the P2000
+		./check_p2000_api.php -H 192.168.0.2 -U manage -P !manage -c named-volume -n volume1
  
 		Get the CPU load of the controllers and append % to the output
 		./check_p2000_api.php -H 192.168.0.2 -U manage -P !manage -s 1 -c controller -S cpu-load -u \"%\"

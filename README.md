@@ -125,3 +125,5 @@ manually running the commands in the API. Some options are iops, bytes-per-secon
 write-cache-percent and others. If using Warning/Critical options specify a stat without any Units
 otherwise false states will be returned. You can specify units yourself using -u option.
 ```
+
+Get more help and information here: http://www.toms-blog.com/post/nagios-hp-msa-p2000-status-and-performance-monitor/

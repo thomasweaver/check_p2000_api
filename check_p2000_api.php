@@ -59,33 +59,68 @@ $successful =0;
  
  
 //Set up HTTP request depending on whether secure or not.
-if($secure) {
-		$url = "https://".$hostAddr."/api/";
- 
-		$ssl_array = array('version' => 3);
-		$r = new HttpRequest("$url", HttpRequest::METH_POST, array('ssl' => $ssl_array));
+if(class_exists('HttpRequest')) {
+	if($secure) {
+			$url = "https://".$hostAddr."/api/";
+	 
+			$ssl_array = array('version' => 3);
+			$r = new HttpRequest("$url", HttpRequest::METH_POST, array('ssl' => $ssl_array));	
+	}
+	else {
+			$url = "http://".$hostAddr."/api/";
+	 
+			$r = new HttpRequest("$url", HttpRequest::METH_POST);
+	}
+	 
+	//Send the Authorisation String
+	$r->setBody("$authstr");
+	 
+	 
+	//Send HTTP Request
+	try {
+		$responce = $r->send()->getBody();
+			//echo($responce);
+	} catch (HttpException $ex) {
+			if (isset($ex->innerException)){
+					returnNagios("UNKNOWN",$ex->innerException->getMessage());
+			}
+			else {
+					returnNagios("UNKNOWN", $ex->getMessage());
+			}
+	}
 }
 else {
+	if($secure) {
+		$url = "https://".$hostAddr."/api/";
+	}
+	else {
 		$url = "http://".$hostAddr."/api/";
- 
-		$r = new HttpRequest("$url", HttpRequest::METH_POST);
-}
- 
-//Send the Authorisation String
-$r->setBody("$authstr");
- 
- 
-//Send HTTP Request
-try {
-	$responce = $r->send()->getBody();
-		//echo($responce);
-} catch (HttpException $ex) {
-		if (isset($ex->innerException)){
-				returnNagios("UNKNOWN",$ex->innerException->getMessage());
+	}
+	
+	if(!function_exists("curl_init")) {
+		returnNagios("UNKNOWN", "HTTPRequest or CURL Libraries aren't installed");
+	}
+	
+	$ch = curl_init($url);
+	
+	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+	curl_setopt($ch, CURLOPT_POST, true);
+	curl_setopt($ch, CURLOPT_POSTFIELDS, $authstr);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	
+	try{
+		$responce = curl_exec($ch);
+		
+		if(curl_error($ch) != "") {
+			returnNagios("UNKNOWN", $e->getMessage());
 		}
-		else {
-				returnNagios("UNKNOWN", $ex->getMessage());
-		}
+		
+	} catch(Exception $e) {
+		returnNagios("UNKNOWN", $e->getMessage());
+	}
+	
+	curl_close($ch);
 }
  
  
@@ -593,7 +628,7 @@ function getEnclosureStatus($encXML, $propertyName) {
 }
  
 function getRequest($sessionKey, $reqUrl, $secure) {
-	   
+	if(class_exists('HttpRequest')) {
 		//Send HTTP request to API and return response
  
 		if($secure) {
@@ -611,8 +646,36 @@ function getRequest($sessionKey, $reqUrl, $secure) {
 				$responce = $r->send()->getBody();
 				return $responce;
 		} catch (HttpException $ex) {
-				throw($ex);
+				throw $ex;
 		}
+	}
+	else {
+		if(!function_exists("curl_init")) {
+			throw new Exception("HTTPRequest or CURL Libraries aren't installed");
+		}
+		
+		$ch = curl_init($reqUrl);
+		
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+		curl_setopt($ch, CURLOPT_COOKIE, "wbisessionkey=".$sessionKey."; wbiusername=;");
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		
+		try{
+			$responce = curl_exec($ch);
+			$error = curl_error($ch);
+			curl_close($ch);
+			
+			if($error != "") {
+				throw new Exception("CURL Error: " . $error);
+			}
+			return $responce;
+			
+		} catch(Exception $e) {
+			curl_close($ch);
+			throw $e;
+		}
+	}
 }
  
 function Usage() {

@@ -71,7 +71,8 @@ if(class_exists('HttpRequest')) {
 	 
 			$r = new HttpRequest("$url", HttpRequest::METH_POST);
 	}
-	 
+	
+	$r->setOptions(array('connecttimeout'=>120,'timeout'=>120));
 	//Send the Authorisation String
 	$r->setBody("$authstr");
 	 
@@ -639,7 +640,7 @@ function getRequest($sessionKey, $reqUrl, $secure) {
 				$r = new HttpRequest("$reqUrl", HttpRequest::METH_GET);
 		}
  
-		$r->setOptions(array('cookies'=>array('wbisessionkey'=>$sessionKey, 'wbiusername'=>'')));
+		$r->setOptions(array('cookies'=>array('wbisessionkey'=>$sessionKey, 'wbiusername'=>''), 'connecttimeout'=>120,'timeout'=>120));
 		$r->setBody();
  
 		try {

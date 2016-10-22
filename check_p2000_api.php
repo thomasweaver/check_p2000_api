@@ -452,7 +452,48 @@ if($successful) {
 								returnNagios("UNKNOWN", $e->getMessage().". Check firmware supports command.");
 						}
 						break;
-			   
+				case "vdisk-read-latency":
+						$stat = "avg-read-rsp-time";
+						try {
+								//Use API to run command and get XML
+								$regXML = getRequest($sessionVariable, "{$url}show/vdisk-statistics", $secure);
+								$regXML = new SimpleXMLElement($regXML);
+
+								foreach($regXML->OBJECT as $obj) {
+										$attr = $obj->attributes();
+										#print_r($obj);
+										if($attr['name']=="vdisk-statistics") {
+												$vdiskName = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'name'));
+												$perfstats[$vdiskName]= getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>$stat));
+										}
+								}
+						}
+						catch(Exception $e) {
+								returnNagios("UNKNOWN", $e->getMessage().". Check firmware supports command.");
+						}
+						break;
+
+				case "vdisk-write-latency":
+						$stat = "avg-write-rsp-time";
+						try {
+								//Use API to run command and get XML
+								$regXML = getRequest($sessionVariable, "{$url}show/vdisk-statistics", $secure);
+								$regXML = new SimpleXMLElement($regXML);
+
+								foreach($regXML->OBJECT as $obj) {
+										$attr = $obj->attributes();
+										#print_r($obj);
+										if($attr['name']=="vdisk-statistics") {
+												$vdiskName = (string) getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'name'));
+												$perfstats[$vdiskName]= getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>$stat));
+										}
+								}
+						}
+						catch(Exception $e) {
+							returnNagios("UNKNOWN", $e->getMessage().". Check firmware supports command.");
+						}
+						break;
+
 				default :
 						echo "Unknown command specified";
 						Usage();
@@ -597,6 +638,8 @@ Optional Variables:
 				named-vdisk - Get the staus of an individual vdisk - MUST have -n volumename specified
 				vdisk - Get performance data of the VDisks
 				volume - Get performance data of the volumes
+				vdisk-write-latency - Get vdisk write latency (only available in later firmwares)
+				vdisk-read-latency - Get vdisk read latency (only available in later firmwares)
 		-S specify the stats to get for performance data. ONLY works when -c is specified
 		-u Units of measure. What should be appended to performance values. ONLY used when -c specified.
 		-w Specify Warning value

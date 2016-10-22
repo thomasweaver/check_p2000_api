@@ -119,6 +119,19 @@ if($successful) {
 												$statuses[$type][]= getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'health'));
 										}
 								}
+								
+								//Get VDisk Info
+                                $regXML = getRequest($sessionVariable, "{$url}show/vdisks", $secure);
+                                $regXML = new SimpleXMLElement($regXML);
+
+                                foreach($regXML->OBJECT as $obj) {
+                                        $attr = $obj->attributes();
+                                        //Get Vdisk Statuses
+                                        if($attr['name']== "virtual-disk") {
+                                                $type = "Vdisk";
+                                                $statuses[$type][]= getEnclosureStatus($obj->PROPERTY, array('name'=>'name', 'value'=>'health'));
+                                        }
+                                }
 							   
  
 								//Get Sensor Information
